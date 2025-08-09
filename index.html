@@ -178,10 +178,11 @@
           rotationOrigin: 'center center'
         }).addTo(map);
 
+        let heading = 0;
         navigator.geolocation.watchPosition(pos => {
           const lat = pos.coords.latitude;
           const lng = pos.coords.longitude;
-          const heading = pos.coords.heading || 0; // heading in degrees
+          heading = pos.coords.heading || 0; // heading in degrees
 
           userMarker.setLatLng([lat, lng]);
           userMarker.setRotationAngle(heading); // rotates the image
