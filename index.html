@@ -182,7 +182,7 @@
         navigator.geolocation.watchPosition(pos => {
           const lat = pos.coords.latitude;
           const lng = pos.coords.longitude;
-          heading = pos.coords.heading || 0; // heading in degrees
+          heading = pos.coords.heading || heading; // heading in degrees
 
           userMarker.setLatLng([lat, lng]);
           userMarker.setRotationAngle(heading); // rotates the image
