@@ -49,6 +49,9 @@
       width: 50px;
       height: 75px;
       cursor: grab;
+
+      transition: transform 0.3s ease-out;
+      will-change: transform;
     }
 
     .marker-arrow {
@@ -106,7 +109,7 @@
 
   <script>
     (function () {
-      console.log('Starting... v4');
+      console.log('Starting... v5');
       const DATA_URL = 'data-2025-07-05.geojson';
       const TOKEN = 'pk.eyJ1IjoidGVjaG5vZHJlYW1lciIsImEiOiJjbWU0Zzd0YWgwMTR1MmpvZjg3aTgwN2c2In0.0s-0fdy6ylXbn3AZvVLGzw';
 
@@ -186,27 +189,22 @@
           const lat = pos.coords.latitude;
           const lng = pos.coords.longitude;
 
-          if (lastPos) {
-            const heading = calculateBearing(lastPos.lat, lastPos.lng, lat, lng);
+          posHistory.push([lat, lng]);
+          if (posHistory.length > 5) posHistory.shift();
+          const [avgLat, avgLng] = posHistory.reduce((a, b) => [a[0] + b[0], a[1] + b[1]], [0, 0]) / posHistory.length;
 
-            // Keep history of last few headings for smoothing
-            headingHistory.push(heading);
-            posHistory.push(lastPos);
-            if (headingHistory.length > 5) headingHistory.shift();
-            if (posHistory.length > 5) posHistory.shift();
+          const heading = calculateBearing(avgLat, avgLng, lat, lng);
 
-            // Average heading to smooth
-            const avgHeading = headingHistory.reduce((a, b) => a + b, 0) / headingHistory.length;
-            const avgPos = posHistory.reduce((a, b) => [a[0] + b[0], a[1] + b[1]], [0, 0]) / posHistory.length;
+          // Keep history of last few headings for smoothing
+          headingHistory.push(heading);
 
-            userMarker.setLatLng([avgPos[0], avgPos[1]]);
-            userMarker.setRotationAngle(avgHeading);
-          } else {
-            // First position, no heading yet
-            userMarker.setLatLng([lat, lng]);
-          }
+          if (headingHistory.length > 5) headingHistory.shift();
 
-          lastPos = { lat, lng };
+          // Average heading to smooth
+          const avgHeading = headingHistory.reduce((a, b) => a + b, 0) / headingHistory.length;
+
+          userMarker.setLatLng([avgLat, avgLng]);
+          userMarker.setRotationAngle(avgHeading);
 
         }, err => console.error(err), {
           enableHighAccuracy: true
