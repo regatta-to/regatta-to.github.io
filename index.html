@@ -109,7 +109,7 @@
 
   <script>
     (function () {
-      console.log('Starting... v5');
+      console.log('Starting... v6');
       const DATA_URL = 'data-2025-07-05.geojson';
       const TOKEN = 'pk.eyJ1IjoidGVjaG5vZHJlYW1lciIsImEiOiJjbWU0Zzd0YWgwMTR1MmpvZjg3aTgwN2c2In0.0s-0fdy6ylXbn3AZvVLGzw';
 
@@ -182,9 +182,14 @@
           rotationOrigin: 'center center'
         }).addTo(map);
 
-        let lastPos = null;
+        // For smoothing
         let headingHistory = [];
         let posHistory = [];
+
+        // For timed updates
+        let nextPos = [0, 0];
+        let nextHeading = 0;
+
         navigator.geolocation.watchPosition(pos => {
           const lat = pos.coords.latitude;
           const lng = pos.coords.longitude;
@@ -205,12 +210,17 @@
           // Average heading to smooth
           const avgHeading = headingHistory.reduce((a, b) => a + b, 0) / headingHistory.length;
 
-          userMarker.setLatLng([avgLat, avgLng]);
-          userMarker.setRotationAngle(avgHeading);
+          nextPos = [avgLat, avgLng];
+          nextHeading = avgHeading;
 
         }, err => console.error(err), {
           enableHighAccuracy: true
         });
+
+        setInterval(() => {
+          userMarker.setLatLng(nextPos);
+          userMarker.setRotationAngle(nextHeading);
+        }, 500);
       });
 
       // If location fails
