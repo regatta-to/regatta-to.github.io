@@ -191,7 +191,9 @@
 
           posHistory.push([lat, lng]);
           if (posHistory.length > 5) posHistory.shift();
-          const [avgLat, avgLng] = posHistory.reduce((a, b) => [a[0] + b[0], a[1] + b[1]], [0, 0]) / posHistory.length;
+          const [avgLatTotal, avgLngTotal] = posHistory.reduce((a, b) => [a[0] + b[0], a[1] + b[1]], [0, 0]);
+          const avgLat = avgLatTotal / posHistory.length;
+          const avgLng = avgLngTotal / posHistory.length;
 
           const heading = calculateBearing(avgLat, avgLng, lat, lng);
 
