@@ -50,8 +50,9 @@
       height: 75px;
       cursor: grab;
 
-      transition: transform 0.3s ease-out;
-      will-change: transform;
+      /* Smoothing - but causes jitter, not sure why */
+      /* transition: transform 0.3s ease-out;
+      will-change: transform; */
     }
 
     .marker-arrow {
@@ -109,7 +110,7 @@
 
   <script>
     (function () {
-      console.log('Starting... v6');
+      console.log('Starting... v7');
       const DATA_URL = 'data-2025-07-05.geojson';
       const TOKEN = 'pk.eyJ1IjoidGVjaG5vZHJlYW1lciIsImEiOiJjbWU0Zzd0YWgwMTR1MmpvZjg3aTgwN2c2In0.0s-0fdy6ylXbn3AZvVLGzw';
 
