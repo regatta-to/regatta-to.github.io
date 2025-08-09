@@ -49,7 +49,6 @@
       width: 50px;
       height: 75px;
       cursor: grab;
-      transition: transform 0.5s ease; /* smooth 0.5s animation on position & rotation */
     }
 
     .marker-arrow {
@@ -107,7 +106,7 @@
 
   <script>
     (function () {
-      console.log('Starting... v3');
+      console.log('Starting... v4');
       const DATA_URL = 'data-2025-07-05.geojson';
       const TOKEN = 'pk.eyJ1IjoidGVjaG5vZHJlYW1lciIsImEiOiJjbWU0Zzd0YWgwMTR1MmpvZjg3aTgwN2c2In0.0s-0fdy6ylXbn3AZvVLGzw';
 
@@ -182,6 +181,7 @@
 
         let lastPos = null;
         let headingHistory = [];
+        let posHistory = [];
         navigator.geolocation.watchPosition(pos => {
           const lat = pos.coords.latitude;
           const lng = pos.coords.longitude;
@@ -191,12 +191,15 @@
 
             // Keep history of last few headings for smoothing
             headingHistory.push(heading);
+            posHistory.push(lastPos);
             if (headingHistory.length > 5) headingHistory.shift();
+            if (posHistory.length > 5) posHistory.shift();
 
             // Average heading to smooth
             const avgHeading = headingHistory.reduce((a, b) => a + b, 0) / headingHistory.length;
+            const avgPos = posHistory.reduce((a, b) => [a[0] + b[0], a[1] + b[1]], [0, 0]) / posHistory.length;
 
-            userMarker.setLatLng([lat, lng]);
+            userMarker.setLatLng([avgPos[0], avgPos[1]]);
             userMarker.setRotationAngle(avgHeading);
           } else {
             // First position, no heading yet
@@ -332,12 +335,58 @@
         const dLon = toRadians(lng2 - lng1);
         const y = Math.sin(dLon) * Math.cos(toRadians(lat2));
         const x = Math.cos(toRadians(lat1)) * Math.sin(toRadians(lat2)) -
-                  Math.sin(toRadians(lat1)) * Math.cos(toRadians(lat2)) * Math.cos(dLon);
+          Math.sin(toRadians(lat1)) * Math.cos(toRadians(lat2)) * Math.cos(dLon);
 
         let brng = Math.atan2(y, x);
         brng = toDegrees(brng);
         return (brng + 360) % 360;  // normalize to 0-360 degrees
       }
+
+      // function smoothMarkerMovement(marker, targetLatLng, targetRotation, options = {}) {
+      //   const easeFactor = options.easeFactor || 0.1; // smaller = slower easing
+      //   const rotationEaseFactor = options.rotationEaseFactor || 0.1;
+
+      //   if (!marker._smoothState) {
+      //     // Initialize current state to marker’s current position and rotation
+      //     marker._smoothState = {
+      //       lat: marker.getLatLng().lat,
+      //       lng: marker.getLatLng().lng,
+      //       rotation: marker.options.rotationAngle || 0
+      //     };
+      //   }
+
+      //   function animate() {
+      //     const state = marker._smoothState;
+
+      //     // Calculate deltas
+      //     const dLat = targetLatLng.lat - state.lat;
+      //     const dLng = targetLatLng.lng - state.lng;
+      //     let dRot = targetRotation - state.rotation;
+
+      //     // Normalize rotation delta to range [-180,180] for shortest path
+      //     dRot = ((dRot + 180) % 360) - 180;
+
+      //     // Apply easing
+      //     state.lat += dLat * easeFactor;
+      //     state.lng += dLng * easeFactor;
+      //     state.rotation += dRot * rotationEaseFactor;
+
+      //     // Update marker position and rotation
+      //     marker.setLatLng([state.lat, state.lng]);
+      //     marker.setRotationAngle(state.rotation);
+
+      //     // If the movement or rotation is still significant, continue animating
+      //     if (Math.abs(dLat) > 0.00001 || Math.abs(dLng) > 0.00001 || Math.abs(dRot) > 0.1) {
+      //       requestAnimationFrame(animate);
+      //     } else {
+      //       // Snap to target to avoid tiny offsets lingering
+      //       marker.setLatLng(targetLatLng);
+      //       marker.setRotationAngle(targetRotation);
+      //     }
+      //   }
+
+      //   animate();
+      // }
     })();
   </script>
 </body>
