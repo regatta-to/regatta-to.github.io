@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+
+  <title>Marauder's Map</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+
+  <style>
+    html,
+    body,
+    #map {
+      height: 100%;
+      width: 100vw;
+      margin: 0;
+      padding: 0;
+
+      /* transform: perspective(3000px) rotateX(15deg);
+      transform-origin: top; */
+    }
+
+    #menu {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(255, 255, 255, 0.5);
+      border: none;
+      border-radius: 4px;
+      padding: 4px 6px;
+      z-index: 1000;
+      font-family: sans-serif;
+      font-size: 24px;
+      cursor: pointer;
+    }
+
+    #menu:hover {
+      background: rgba(255, 255, 255, 0.75);
+    }
+
+    .parchment-line {
+      /* filter: drop-shadow(3px 3px 4px rgba(0, 0, 0, 0.3)); */
+    }
+
+    .user-marker {
+      position: relative;
+      width: 50px;
+      height: 75px;
+      cursor: grab;
+    }
+
+    .marker-arrow {
+      width: 100%;
+      height: 100%;
+      background: url('pns3.png') no-repeat center/contain;
+      transform-origin: center;
+    }
+
+    /* Glow pulse effect */
+    .user-marker::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 75px;
+      height: 75px;
+      background: rgba(255, 255, 255, 0.4);
+      /* glow color */
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 0.6;
+      }
+
+      70% {
+        transform: translate(-50%, -50%) scale(2);
+        opacity: 0;
+      }
+
+      100% {
+        transform: translate(-50%, -50%) scale(2);
+        opacity: 0;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="map"></div>
+  <button id="menu" onclick="toggleOverlay('info')">☰</button>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <script src="https://unpkg.com/@turf/turf@7.2.0/turf.min.js"
+    integrity="sha256-1XhsCK5OmIs3qlwm3jKwUewuRoD2AvKpjKO8SzKONDI=" crossorigin=""></script>
+
+  <script src="leaflet.rotatedMarker.js"></script>
+
+  <script>
+    (function () {
+      const DATA_URL = 'data-2025-07-05.geojson';
+      const TOKEN = 'pk.eyJ1IjoidGVjaG5vZHJlYW1lciIsImEiOiJjbWU0Zzd0YWgwMTR1MmpvZjg3aTgwN2c2In0.0s-0fdy6ylXbn3AZvVLGzw';
+
+      // Bounds:
+      const X1 = 43.64550;
+      const Y1 = -79.33950;
+      const X2 = 43.64100;
+      const Y2 = -79.33300;
+      const BUFFER = 0.001
+      const MAP_BOUNDS = [[X1, Y1], [X2, Y2]];
+      const MAX_BOUNDS = [[X1 + BUFFER, Y1 - BUFFER], [X2 - BUFFER, Y2 + BUFFER]];
+
+      // Initial location and zoom
+      const INITIAL_XY = [43.64309, -79.33630];
+      const MIN_ZOOM = 18;
+      const MAX_ZOOM = 21;
+      const MAX_NATIVE_ZOOM = 20;
+      const DEFAULT_ZOOM = 19;
+
+
+
+      const map = L.map('map', {
+        // maxBounds: MAX_BOUNDS,
+        minZoom: MIN_ZOOM,
+        maxZoom: MAX_ZOOM,
+        layers: [
+          L.tileLayer(`https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/{z}/{x}/{y}?access_token=${TOKEN}`, {
+            attribution: '© Mapbox © OpenStreetMap',
+            tileSize: 512,
+            zoomOffset: -1,
+            maxNativeZoom: MAX_NATIVE_ZOOM,
+            maxZoom: MAX_ZOOM,
+          }),
+          // Darker border around map
+          L.rectangle(MAP_BOUNDS, {
+            interactive: false,
+            fill: false,
+            weight: 8,
+            color: '#444444',
+          }),
+
+          // White dashing
+          L.rectangle(MAP_BOUNDS, {
+            interactive: false,
+            fill: false,
+            weight: 7,
+            color: '#FFFFFF',
+            lineCap: 'square',
+            lineJoin: 'square',
+            dashArray: '10 25',
+          })
+        ]
+      }).setView(INITIAL_XY, DEFAULT_ZOOM);
+
+      // Ask browser for location and zoom there
+      map.locate({ setView: true, maxZoom: 20 });
+
+      // When location is found
+      map.on('locationfound', function (e) {
+        const userIcon = L.divIcon({
+          className: 'user-marker',
+          html: `<div class="marker-arrow"></div>`,
+          iconSize: [50, 75],   // adjust size as needed
+          iconAnchor: [25, 37.5]  // center point of the image
+        });
+
+        let userMarker = L.marker(e.latlng, {
+          icon: userIcon,
+          rotationAngle: 0,    // in degrees
+          rotationOrigin: 'center center'
+        }).addTo(map);
+
+        navigator.geolocation.watchPosition(pos => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          const heading = pos.coords.heading || 0; // heading in degrees
+
+          userMarker.setLatLng([lat, lng]);
+          userMarker.setRotationAngle(heading); // rotates the image
+        }, err => console.error(err), {
+          enableHighAccuracy: true
+        });
+      });
+
+      // If location fails
+      map.on('locationerror', function (e) {
+        alert('Location access denied or unavailable.');
+        // Ignore for now
+      });
+
+      fetchData().then(data => {
+        const geoJsonData = normalizeLineStrings(data);
+
+        // Create shadow data with offset coordinates
+        const shadowData = JSON.parse(JSON.stringify(geoJsonData));
+        shadowData.features.forEach(feature => {
+          if (feature.geometry.coordinates) {
+            feature.geometry.coordinates.forEach(coord => {
+              // Offset coordinates for shadow effect (southeast direction)
+              coord[0] += 0.0000075; // longitude offset (east)
+              coord[1] -= 0.0000075; // latitude offset (south)
+            });
+          }
+        });
+
+        // Create shadow layer first (rendered underneath)
+        const shadowLayer = L.geoJSON(shadowData, {
+          style: {
+            color: 'rgba(0, 0, 0, 0.4)',
+            opacity: 1,
+            lineCap: 'round',
+            lineJoin: 'round',
+            weight: 12,
+            fillOpacity: 0
+          }
+        }).addTo(map);
+
+        // Create main layer on top
+        const geojsonLayer = L.geoJSON(geoJsonData, {
+          style: {
+            color: '#CCCCCC',
+            opacity: 1,
+            lineCap: 'round',
+            lineJoin: 'round',
+            // className: 'parchment-line',
+            weight: 12,
+          }
+        }).addTo(map);
+
+        console.log(geojsonLayer)
+      });
+
+      // // A little bit approximate, but tries to keep the path lines the same width
+
+      // function getWeight(z, zMin = MIN_ZOOM, zMax = MAX_ZOOM, wMin = 16.0, wMax = 22.0, power = 0.1) {
+      //   const clampedZ = Math.min(Math.max(z, zMin), zMax);
+      //   const curved = Math.pow(z, power); // apply curve
+      //   const zoom = wMin + (wMax - wMin) * (clampedZ - zMin) / (zMax - zMin);
+      //   return zoom * curved;
+      // }
+      // function getWeight(z, zMin = 10, zMax = 25, wMin = 1.0, wMax = 20.0, power = 0.5) {
+      //   const clampedZ = Math.min(Math.max(z, zMin), zMax);
+      //   const t = (clampedZ - zMin) / (zMax - zMin); // normalized 0 to 1
+      //   const curved = Math.pow(t, power); // apply curve
+      //   return wMin + (wMax - wMin) * curved;
+      // }
+
+      /**
+       * HELPER FUNCTIONS:
+       */
+
+      // Overlay toggle
+      function toggleOverlay(type) {
+        alert(type + ' overlay clicked');
+        // Implement overlay logic later
+      }
+
+      function fetchData() {
+        return fetch(DATA_URL)
+          .then(response => response.json())
+          .catch((error) => onError('LOAD', error))
+      }
+
+      function onError(type, error) {
+        console.error(type, error);
+      }
+
+      function normalizeLineStrings(geojson) {
+        const features = [];
+
+        geojson.features.forEach(feature => {
+          const { geometry, properties } = feature;
+
+          if (geometry.type === "MultiLineString") {
+            geometry.coordinates.forEach(coords => {
+              features.push(
+                turf.bezierSpline(
+                  {
+                    ...feature,
+                    geometry: {
+                      type: "LineString",
+                      coordinates: coords
+                    },
+                  }, { sharpness: 0.5 })
+              )
+            });
+          } else if (geometry.type === "LineString") {
+            features.push(turf.bezierSpline(feature, { sharpness: 0.5 }))
+          } else {
+            features.push(feature);
+          }
+        });
+
+        return {
+          ...geojson,
+          features: features
+        };
+      }
+    })();
+  </script>
+</body>
+
+</html>
