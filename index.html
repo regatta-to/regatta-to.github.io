@@ -49,6 +49,7 @@
       width: 50px;
       height: 75px;
       cursor: grab;
+      transition: transform 0.5s ease; /* smooth 0.5s animation on position & rotation */
     }
 
     .marker-arrow {
@@ -106,7 +107,7 @@
 
   <script>
     (function () {
-      console.log('Starting... v2');
+      console.log('Starting... v3');
       const DATA_URL = 'data-2025-07-05.geojson';
       const TOKEN = 'pk.eyJ1IjoidGVjaG5vZHJlYW1lciIsImEiOiJjbWU0Zzd0YWgwMTR1MmpvZjg3aTgwN2c2In0.0s-0fdy6ylXbn3AZvVLGzw';
 
@@ -179,14 +180,31 @@
           rotationOrigin: 'center center'
         }).addTo(map);
 
-        let heading = 0;
+        let lastPos = null;
+        let headingHistory = [];
         navigator.geolocation.watchPosition(pos => {
           const lat = pos.coords.latitude;
           const lng = pos.coords.longitude;
-          heading = pos.coords.heading || heading; // heading in degrees
 
-          userMarker.setLatLng([lat, lng]);
-          userMarker.setRotationAngle(heading); // rotates the image
+          if (lastPos) {
+            const heading = calculateBearing(lastPos.lat, lastPos.lng, lat, lng);
+
+            // Keep history of last few headings for smoothing
+            headingHistory.push(heading);
+            if (headingHistory.length > 5) headingHistory.shift();
+
+            // Average heading to smooth
+            const avgHeading = headingHistory.reduce((a, b) => a + b, 0) / headingHistory.length;
+
+            userMarker.setLatLng([lat, lng]);
+            userMarker.setRotationAngle(avgHeading);
+          } else {
+            // First position, no heading yet
+            userMarker.setLatLng([lat, lng]);
+          }
+
+          lastPos = { lat, lng };
+
         }, err => console.error(err), {
           enableHighAccuracy: true
         });
@@ -305,6 +323,20 @@
           ...geojson,
           features: features
         };
+      }
+
+      function calculateBearing(lat1, lng1, lat2, lng2) {
+        const toRadians = deg => deg * Math.PI / 180;
+        const toDegrees = rad => rad * 180 / Math.PI;
+
+        const dLon = toRadians(lng2 - lng1);
+        const y = Math.sin(dLon) * Math.cos(toRadians(lat2));
+        const x = Math.cos(toRadians(lat1)) * Math.sin(toRadians(lat2)) -
+                  Math.sin(toRadians(lat1)) * Math.cos(toRadians(lat2)) * Math.cos(dLon);
+
+        let brng = Math.atan2(y, x);
+        brng = toDegrees(brng);
+        return (brng + 360) % 360;  // normalize to 0-360 degrees
       }
     })();
   </script>
